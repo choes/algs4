@@ -1,9 +1,11 @@
 import edu.princeton.cs.algs4.WeightedQuickUnionUF;
 
 public class Percolation {
-    private boolean[][] grid;
     private final WeightedQuickUnionUF uf;
     private int openSitesCnt = 0;
+    private enum GRIDSTATE { BLOCKED, OPEN, FULL };
+    private GRIDSTATE[][] grid;
+    private boolean isPercolated = false;
 
     // creates n-by-n grid, with all sites initially blocked
     public Percolation(int n) {
@@ -11,10 +13,10 @@ public class Percolation {
             throw new IllegalArgumentException("n should be larger than zero");
         }
 
-        grid = new boolean[n][n];
+        grid = new GRIDSTATE[n][n];
         for (int i = 0; i < n; i++) {
             for (int j = 0; j < n; j++) {
-                grid[i][j] = false; // blocked
+                grid[i][j] = GRIDSTATE.BLOCKED;
             }
         }
 
@@ -27,8 +29,8 @@ public class Percolation {
             throw new IllegalArgumentException("the range of row and col should be [1, n]");
         }
 
-        if (!grid[row - 1][col - 1]) {
-            grid[row - 1][col - 1] = true;
+        if (grid[row - 1][col - 1] == GRIDSTATE.BLOCKED) {
+            grid[row - 1][col - 1] = (row == 1) ? GRIDSTATE.FULL : GRIDSTATE.OPEN;
             openSitesCnt++;
             unionNearbyOpenSites(row, col);
         }
@@ -40,7 +42,7 @@ public class Percolation {
             throw new IllegalArgumentException("the range of row and col should be [1, n]");
         }
 
-        return grid[row - 1][col - 1];
+        return grid[row - 1][col - 1] != GRIDSTATE.BLOCKED;
     }
 
     // is the site (row, col) full?
@@ -48,23 +50,17 @@ public class Percolation {
         if (row <= 0 || row > grid.length || col <= 0 || col > grid.length) {
             throw new IllegalArgumentException("the range of row and col should be [1, n]");
         }
-
-        if (isOpen(row, col)) {
-            if (row == 1) {
-                return true;
-            }
-
-            int findRet = uf.find(getUFIdx(row, col));
-            for (int i = 1; i <= grid.length; i++) {
-                if (isOpen(1, i)) {
-                    if (uf.find(i) == findRet) {
-                        return true;
-                    }
-                }
+        
+        if (grid[row - 1][col - 1] == GRIDSTATE.OPEN) {
+            int root = uf.find(getUFIdx(row, col));
+            int rootRow = getRowByIdx(root);
+            int rootCol = getColByIdx(root);
+            if (grid[rootRow - 1][rootCol - 1] == GRIDSTATE.FULL) {
+                grid[row - 1][col - 1] = GRIDSTATE.FULL;
             }
         }
 
-        return false;
+        return grid[row - 1][col - 1] == GRIDSTATE.FULL;
     }
 
     // returns the number of open sites
@@ -72,44 +68,78 @@ public class Percolation {
         return openSitesCnt;
     }
 
-    // does the system perlocates?
+    // does the system percolates?
     public boolean percolates() {
-        for (int col = 1; col <= grid.length; col++) {
+        for (int col = 1; col <= grid.length && !isPercolated; col++) {
             if (isFull(grid.length, col)) {
-                return true;
+                isPercolated = true;
             }
         }
 
-        return false;
+        return isPercolated;
     }
 
     private int getUFIdx(int row, int col) {
         return (row - 1) * grid.length + col;
     }
 
+    private void setSiteFull(int row, int col) {
+        grid[row - 1][col - 1] = GRIDSTATE.FULL;
+    }
+
+    private int getRowByIdx(int idx) {
+        return idx / grid.length + (idx % grid.length == 0 ? 0 : 1);
+    }
+
+    private int getColByIdx(int idx) {
+        int remainder = idx % grid.length;
+        return  remainder == 0 ? grid.length : remainder;
+    }
+
     private void unionNearbyOpenSites(int row, int col) {
         final int IDX = getUFIdx(row, col);
-        int[][] nearbySites = new int[4][2];
-        // upper site
-        nearbySites[0][0] = row - 1;
-        nearbySites[0][1] = col;
-        // left site
-        nearbySites[1][0] = row;
-        nearbySites[1][1] = col - 1;
-        // right site
-        nearbySites[2][0] = row;
-        nearbySites[2][1] = col + 1;
-        // down site
-        nearbySites[3][0] = row + 1;
-        nearbySites[3][1] = col;
-
+        int[][] nearbySites = {
+            { row - 1, col }, // upper site
+            { row, col - 1 }, // left site
+            { row, col + 1 }, // right site
+            { row + 1, col }  // down site
+        };
+        boolean isSiteFull = isFull(row, col);
+        
         for (int i = 0; i < nearbySites.length; i++) {
             int nearbyRow = nearbySites[i][0];
             int nearbyCol = nearbySites[i][1];
-            if (nearbyRow > 0 && nearbyRow <= grid.length && nearbyCol > 0 && nearbyCol <= grid.length) {
-                if (isOpen(nearbyRow, nearbyCol)) {
-                    uf.union(IDX, getUFIdx(nearbyRow, nearbyCol));
+            if (nearbyRow <= 0          ||
+                nearbyRow > grid.length ||
+                nearbyCol <= 0          ||
+                nearbyCol > grid.length ||
+                !isOpen(nearbyRow, nearbyCol)) {
+                continue;
+            }
+
+            if (isSiteFull) {
+                setSiteFull(nearbyRow, nearbyCol);
+            } else {
+                if (isFull(nearbyRow, nearbyCol)) {
+                    setSiteFull(row, col);
+                    isSiteFull = true;
                 }
+            }
+
+            if (!isPercolated && isSiteFull && (row == grid.length || nearbyRow == grid.length)) {
+                isPercolated = true;
+            }
+
+            uf.union(IDX, getUFIdx(nearbyRow, nearbyCol));
+        }
+
+        if (isSiteFull) {
+            int root = uf.find(IDX);
+            int rootRow = getRowByIdx(root);
+            int rootCol = getColByIdx(root);
+            setSiteFull(rootRow, rootCol);
+            if (!isPercolated && (row == grid.length || rootRow == grid.length)) {
+                isPercolated = true;
             }
         }
     }
