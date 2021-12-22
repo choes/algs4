@@ -4,12 +4,16 @@ import edu.princeton.cs.algs4.StdRandom;
 
 public class RandomizedQueue<Item> implements Iterable<Item> {
     private int size;
-    private Item[] items;
-    private int idx;
+    private Node front;
+
+    private class Node {
+        Item item;
+        Node next;
+    }
 
     public RandomizedQueue() {
         size = 0;
-        resize(1);
+        front = null;
     }
 
     public boolean isEmpty() {
@@ -26,43 +30,55 @@ public class RandomizedQueue<Item> implements Iterable<Item> {
             throw new IllegalArgumentException("not enqueue a null item");
         }
 
-        if (idx < 0) {
-            resize(2 * size);
-        }
-
+        Node node = new Node();
+        node.item = item;
+        node.next = front;
+        front = node;
         size++;
-        items[idx] = item;
-        idx = -1;
-        for (int i = items.length - 1; i >= 0; i--) {
-            if (items[i] == null) {
-                idx = i;
-                break;
-            }
-        }
     }
 
     // remove and return a random item
     public Item dequeue() {
-        if (isEmpty()) {
-            throw new NoSuchElementException("no more item");
-        }
-
-        int randomIdx = getRandomIdx();
-        Item item = items[randomIdx];
-        items[randomIdx] = null;
-        size--;
-        idx = randomIdx;
-
-        return item;
+        return sample(true);
     }
 
     // return a random item (but not remove it)
     public Item sample() {
+        return sample(false);
+    }
+
+    private Item sample(boolean isRemove) {
         if (isEmpty()) {
             throw new NoSuchElementException("no more item");
         }
 
-        return items[getRandomIdx()];
+        int randomIdx = StdRandom.uniform(size);
+        Node prevNode = getPrevNode(randomIdx);
+        Node curNode = (prevNode == null) ? front : prevNode.next;
+        Item item = curNode.item;
+        if (isRemove) {
+            if (prevNode == null) {
+                front = (size == 1) ? null : front.next;
+            } else {
+                prevNode.next = curNode.next;
+            }
+            size--;
+        }
+
+        return item;
+    }
+
+    private Node getPrevNode(int idx) {
+        Node prev = null;
+        Node cur = front;
+        for (int i = 0; i <= idx; i++) {
+            if (i != idx) {
+                prev = cur;
+                cur = cur.next;
+            }
+        }
+
+        return prev;
     }
 
     // return an independent iterator over items in random order
@@ -79,9 +95,14 @@ public class RandomizedQueue<Item> implements Iterable<Item> {
         }
 
         public Item next() {
-            Item item = items[allIdx[pos]];
-            pos++;
-            return item;
+            if (hasNext()) {
+                int idx = allIdx[pos];
+                Node prev = getPrevNode(idx);
+                pos++;
+                return (prev == null) ? front.item : prev.next.item;
+            } else {
+                throw new NoSuchElementException("no more item");
+            }
         }
 
         public void remove() {
@@ -89,46 +110,21 @@ public class RandomizedQueue<Item> implements Iterable<Item> {
         }
     }
 
-    private void resize(int max) {
-        Item[] temp = (Item[])new Object[max];
-        for (int i = 0; i < size; i++) {
-            if (items[i] != null) {
-                temp[i] = items[i];
-            }
-        }
-
-        idx = size;
-        for (int i = size; i < max; i++) {
-            temp[i] = null;
-        }
-
-        items = temp;
-    }
-
-    private int[] getAllIdx() {
-        int []allIdx = new int[size];
-        for (int i = 0, j = 0; i < items.length && j < size; i++) {
-            if (items[i] != null) {
-                allIdx[j] = i;
-                j++;
-            }
-        }
-
-        return allIdx;
-    }
-
-    private int getRandomIdx() {
-        return getUniformIdx()[0];
-    }
-
     private int[] getUniformIdx() {
-        int []allIdx = getAllIdx();
-        StdRandom.shuffle(allIdx);
+        int []allIdx = new int[size];
+        for (int i = 0; i < size; i++)  {
+            allIdx[i] = i;
+        }
+
+        if (size > 0) {
+            StdRandom.shuffle(allIdx);
+        }
+
         return allIdx;
     }
 
     public static void main(String[] args) {
-        RandomizedQueue<String> queue = new RandomizedQueue();
+        RandomizedQueue<String> queue = new RandomizedQueue<String>();
         queue.enqueue("sheng");
         queue.enqueue("choes");
         queue.enqueue("young");
@@ -138,6 +134,11 @@ public class RandomizedQueue<Item> implements Iterable<Item> {
         queue.dequeue();
 
         System.out.println("queue " + (queue.isEmpty() ? "is" : "is not") + " empty, size: " + queue.size());
+        for (String str : queue) {
+            System.out.println(str);
+        }
+
+        System.out.println("--------------");
         for (String str : queue) {
             System.out.println(str);
         }

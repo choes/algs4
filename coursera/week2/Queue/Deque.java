@@ -121,9 +121,13 @@ public class Deque<Item> implements Iterable<Item> {
         }
 
         public Item next() {
-            Item item = current.item;
-            current = current.next;
-            return item;
+            if (hasNext()) {
+                Item item = current.item;
+                current = current.next;
+                return item;
+            } else {
+                return null;
+            }
         }
 
         public void remove() {
@@ -132,7 +136,7 @@ public class Deque<Item> implements Iterable<Item> {
     }
 
     public static void main(String[] args) {
-        Deque<String> queue = new Deque();
+        Deque<String> queue = new Deque<String>();
         queue.addLast("sheng");
         queue.removeFirst();
         queue.addFirst("yang");
