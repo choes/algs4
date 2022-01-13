@@ -1,4 +1,5 @@
 import java.util.ArrayList;
+import java.util.Arrays;
 
 public class BruteCollinearPoints {
     private LineSegment[] collinearSegments = null;
@@ -60,11 +61,12 @@ public class BruteCollinearPoints {
             }
         }
 
-        if (segLists.size() > 0) {
+        if (!segLists.isEmpty()) {
             collinearSegments = new LineSegment[segLists.size()];
             int idx = 0;
             for (LineSegment segment : segLists) {
                 collinearSegments[idx] = segment;
+                idx++;
             }
         }
     }
@@ -77,6 +79,6 @@ public class BruteCollinearPoints {
     }
 
     public LineSegment[] segments() {
-        return collinearSegments;
+        return (collinearSegments != null) ? collinearSegments : (new LineSegment[0]);
     }
 }
